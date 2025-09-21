@@ -178,7 +178,7 @@ export function AudioWaveVisualizer({
   }, [isActive, isAnalyzing, color, height, width, barCount]);
 
   return (
-    <div className={`flex items-center justify-center ${className}`}>
+    <div className={`relative flex items-center justify-center ${className}`}>
       <canvas
         ref={canvasRef}
         width={width}
@@ -188,11 +188,12 @@ export function AudioWaveVisualizer({
         }`}
         style={{ 
           filter: isActive ? 'none' : 'grayscale(100%)',
-          background: 'transparent'
+          background: 'transparent',
+          pointerEvents: 'none' // Prevent canvas from blocking clicks
         }}
       />
       {!isActive && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400">
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 pointer-events-none">
           {role === 'user' ? '🎤 Speak to see waves' : '🔊 AI will show waves'}
         </div>
       )}

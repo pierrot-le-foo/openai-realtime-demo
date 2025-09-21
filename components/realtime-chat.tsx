@@ -183,9 +183,17 @@ export default function RealtimeChat() {
   };
 
   const handleDisconnect = () => {
-    disconnect();
-    setConversations([]);
-    setIsListening(false);
+    console.log('handleDisconnect called');
+    try {
+      disconnect();
+      setConversations([]);
+      setIsListening(false);
+      setUserSpeaking(false);
+      setActiveTranscription(null);
+      console.log('Disconnect completed successfully');
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+    }
   };
 
   const sendTextMessage = () => {
@@ -270,7 +278,10 @@ export default function RealtimeChat() {
                 </button>
               ) : (
                 <button
-                  onClick={handleDisconnect}
+                  onClick={() => {
+                    console.log('Disconnect button clicked');
+                    handleDisconnect();
+                  }}
                   className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
                 >
                   Disconnect

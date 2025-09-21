@@ -148,41 +148,57 @@ export function useRealtimeWebRTC() {
   const disconnect = useCallback(() => {
     console.log('Disconnecting...');
     
-    // Clear reconnection timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
+    try {
+      // Clear reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+        console.log('Cleared reconnection timeout');
+      }
+      
+      // Reset connection attempts and session state
+      connectionAttempts.current = 0;
+      setIsSessionStarted(false);
+      console.log('Reset connection attempts and session state');
+      
+      // Close data channel
+      if (dcRef.current) {
+        dcRef.current.close();
+        dcRef.current = null;
+        console.log('Closed data channel');
+      }
+      
+      // Close peer connection
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+        console.log('Closed peer connection');
+      }
+      
+      // Stop local media stream
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped track:', track.kind);
+        });
+        localStreamRef.current = null;
+        console.log('Stopped local media stream');
+      }
+      
+      // Remove audio element
+      if (audioElementRef.current) {
+        audioElementRef.current.remove();
+        audioElementRef.current = null;
+        console.log('Removed audio element');
+      }
+      
+      setConnectionState({ status: 'disconnected' });
+      console.log('Disconnect completed - state set to disconnected');
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+      // Still set to disconnected even if there's an error
+      setConnectionState({ status: 'disconnected' });
     }
-    
-    // Reset connection attempts and session state
-    connectionAttempts.current = 0;
-    setIsSessionStarted(false);
-    
-    // Close data channel
-    if (dcRef.current) {
-      dcRef.current.close();
-      dcRef.current = null;
-    }
-    
-    // Close peer connection
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-    
-    // Stop local media stream
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
-    }
-    
-    // Remove audio element
-    if (audioElementRef.current) {
-      audioElementRef.current.remove();
-      audioElementRef.current = null;
-    }
-    
-    setConnectionState({ status: 'disconnected' });
   }, []);
 
   const connect = useCallback(async () => {
