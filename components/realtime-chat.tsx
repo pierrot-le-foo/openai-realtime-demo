@@ -10,6 +10,15 @@ interface ConversationItem {
   role?: string;
   content?: any[];
   timestamp: number;
+  isComplete?: boolean;
+  transcriptText?: string; // For real-time speech transcription
+}
+
+interface ActiveTranscription {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  isComplete: boolean;
 }
 
 export function RealtimeChat() {
@@ -17,6 +26,8 @@ export function RealtimeChat() {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [activeTranscription, setActiveTranscription] = useState<ActiveTranscription | null>(null);
+  const [userSpeaking, setUserSpeaking] = useState(false);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   // Handle incoming events
@@ -34,32 +45,106 @@ export function RealtimeChat() {
               role: event.item.role,
               content: event.item.content,
               timestamp: Date.now(),
+              isComplete: true,
             }]);
           }
           break;
-          
-        case 'response.audio_transcript.delta':
-          // Handle partial transcription
-          console.log('Audio transcript delta:', event.delta);
+
+        case 'input_audio_buffer.speech_started':
+          console.log('User started speaking');
+          setUserSpeaking(true);
+          // Create a placeholder for user speech
+          setActiveTranscription({
+            id: `user-speech-${Date.now()}`,
+            role: 'user',
+            text: '',
+            isComplete: false
+          });
           break;
-          
-        case 'response.audio_transcript.done':
-          // Handle completed transcription
-          console.log('Audio transcript done:', event.transcript);
+
+        case 'input_audio_buffer.speech_stopped':
+          console.log('User stopped speaking');
+          setUserSpeaking(false);
           break;
           
         case 'conversation.item.input_audio_transcription.completed':
           // Handle user speech transcription
           console.log('User speech transcribed:', event.transcript);
+          if (activeTranscription && activeTranscription.role === 'user') {
+            // Update the active transcription
+            setActiveTranscription(prev => prev ? {
+              ...prev,
+              text: event.transcript,
+              isComplete: true
+            } : null);
+            
+            // Add completed user message to conversation
+            setConversations(prev => [...prev, {
+              id: `user-transcription-${Date.now()}`,
+              type: 'transcription',
+              role: 'user',
+              content: [{ type: 'text', text: event.transcript }],
+              timestamp: Date.now(),
+              isComplete: true,
+              transcriptText: event.transcript,
+            }]);
+            
+            // Clear active transcription after a brief delay
+            setTimeout(() => setActiveTranscription(null), 1000);
+          }
+          break;
+
+        case 'response.audio_transcript.delta':
+          // Handle partial AI transcription
+          console.log('AI transcript delta:', event.delta);
+          setActiveTranscription(prev => {
+            if (prev && prev.role === 'assistant') {
+              return {
+                ...prev,
+                text: prev.text + event.delta,
+                isComplete: false
+              };
+            } else {
+              // Start new AI transcription
+              return {
+                id: `ai-speech-${Date.now()}`,
+                role: 'assistant',
+                text: event.delta,
+                isComplete: false
+              };
+            }
+          });
+          break;
+          
+        case 'response.audio_transcript.done':
+          // Handle completed AI transcription
+          console.log('AI transcript done:', event.transcript);
+          if (activeTranscription && activeTranscription.role === 'assistant') {
+            // Add completed AI message to conversation
+            setConversations(prev => [...prev, {
+              id: `ai-transcription-${Date.now()}`,
+              type: 'transcription',
+              role: 'assistant',
+              content: [{ type: 'text', text: event.transcript }],
+              timestamp: Date.now(),
+              isComplete: true,
+              transcriptText: event.transcript,
+            }]);
+            
+            // Clear active transcription
+            setActiveTranscription(null);
+          }
           break;
           
         case 'response.done':
           console.log('Response completed');
           setIsListening(false);
+          setActiveTranscription(null);
           break;
           
         case 'error':
           console.error('Realtime API error:', event.error);
+          setActiveTranscription(null);
           break;
           
         default:
@@ -68,7 +153,7 @@ export function RealtimeChat() {
     });
 
     return removeListener;
-  }, [addEventListener]);
+  }, [addEventListener, activeTranscription]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -185,7 +270,7 @@ export function RealtimeChat() {
 
         {/* Conversation Area */}
         <div className="h-96 overflow-y-auto p-4 bg-gray-50">
-          {conversations.length === 0 ? (
+          {conversations.length === 0 && !activeTranscription ? (
             <div className="text-center text-gray-500 mt-8">
               <p>No conversation yet. Connect and start chatting!</p>
               <p className="text-sm mt-2">
@@ -214,13 +299,42 @@ export function RealtimeChat() {
                         </div>
                       ))}
                     </div>
-                    <div className="text-xs opacity-70 mt-1">
+                    <div className="text-xs opacity-70 mt-1 flex items-center gap-2">
+                      {item.type === 'transcription' && (
+                        <span>🎤</span>
+                      )}
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
               ))}
-              {isListening && (
+              
+              {/* Active Transcription Display */}
+              {activeTranscription && (
+                <div className={`flex ${activeTranscription.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg border-2 border-dashed ${
+                    activeTranscription.role === 'user' 
+                      ? 'border-blue-300 bg-blue-50 text-blue-800' 
+                      : 'border-green-300 bg-green-50 text-green-800'
+                  }`}>
+                    <div className="text-xs opacity-70 mb-1 flex items-center gap-2">
+                      {activeTranscription.role === 'user' ? 'You' : 'AI'} (Speaking...)
+                      {!activeTranscription.isComplete && (
+                        <div className="flex space-x-1">
+                          <div className="w-1 h-1 bg-current rounded-full animate-bounce"></div>
+                          <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                          <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-sm">
+                      {activeTranscription.text || (userSpeaking ? 'Listening...' : 'Processing...')}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {isListening && !activeTranscription && (
                 <div className="flex justify-start">
                   <div className="bg-gray-200 text-gray-600 px-4 py-2 rounded-lg">
                     <div className="flex items-center space-x-2">
@@ -262,6 +376,11 @@ export function RealtimeChat() {
           <div className="mt-2 text-sm text-gray-600">
             <strong>Voice Chat:</strong> Once connected, you can speak directly into your microphone. 
             The AI will respond with voice and the conversation will appear above.
+            {userSpeaking && (
+              <div className="mt-1 text-blue-600 font-medium flex items-center gap-2">
+                🗣️ Speaking detected... <div className="animate-pulse">●</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
