@@ -65,33 +65,36 @@ export function RealtimeChat() {
         case 'input_audio_buffer.speech_stopped':
           console.log('User stopped speaking');
           setUserSpeaking(false);
+          // Mark active user transcription as complete (waiting for transcription)
+          setActiveTranscription(prev => 
+            prev && prev.role === 'user' ? {
+              ...prev,
+              text: prev.text || 'Processing speech...',
+              isComplete: true
+            } : prev
+          );
           break;
           
         case 'conversation.item.input_audio_transcription.completed':
           // Handle user speech transcription
           console.log('User speech transcribed:', event.transcript);
-          if (activeTranscription && activeTranscription.role === 'user') {
-            // Update the active transcription
-            setActiveTranscription(prev => prev ? {
-              ...prev,
-              text: event.transcript,
-              isComplete: true
-            } : null);
-            
-            // Add completed user message to conversation
-            setConversations(prev => [...prev, {
-              id: `user-transcription-${Date.now()}`,
-              type: 'transcription',
-              role: 'user',
-              content: [{ type: 'text', text: event.transcript }],
-              timestamp: Date.now(),
-              isComplete: true,
-              transcriptText: event.transcript,
-            }]);
-            
-            // Clear active transcription after a brief delay
-            setTimeout(() => setActiveTranscription(null), 1000);
-          }
+          // Add completed user message to conversation
+          setConversations(prev => [...prev, {
+            id: `user-transcription-${Date.now()}`,
+            type: 'transcription',
+            role: 'user',
+            content: [{ type: 'text', text: event.transcript }],
+            timestamp: Date.now(),
+            isComplete: true,
+            transcriptText: event.transcript,
+          }]);
+          
+          // Clear active user transcription after a brief delay
+          setTimeout(() => {
+            setActiveTranscription(prev => 
+              prev && prev.role === 'user' ? null : prev
+            );
+          }, 500);
           break;
 
         case 'response.audio_transcript.delta':
