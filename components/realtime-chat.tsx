@@ -119,27 +119,27 @@ export function RealtimeChat() {
         case 'response.audio_transcript.done':
           // Handle completed AI transcription
           console.log('AI transcript done:', event.transcript);
-          if (activeTranscription && activeTranscription.role === 'assistant') {
-            // Add completed AI message to conversation
-            setConversations(prev => [...prev, {
-              id: `ai-transcription-${Date.now()}`,
-              type: 'transcription',
-              role: 'assistant',
-              content: [{ type: 'text', text: event.transcript }],
-              timestamp: Date.now(),
-              isComplete: true,
-              transcriptText: event.transcript,
-            }]);
-            
-            // Clear active transcription
+          // Add completed AI message to conversation (use the full transcript, not just the delta)
+          setConversations(prev => [...prev, {
+            id: `ai-transcription-${Date.now()}`,
+            type: 'transcription',
+            role: 'assistant',
+            content: [{ type: 'text', text: event.transcript }],
+            timestamp: Date.now(),
+            isComplete: true,
+            transcriptText: event.transcript,
+          }]);
+          
+          // Clear active transcription after a small delay to show completion
+          setTimeout(() => {
             setActiveTranscription(null);
-          }
+          }, 500);
           break;
           
         case 'response.done':
           console.log('Response completed');
           setIsListening(false);
-          setActiveTranscription(null);
+          // Don't clear active transcription here - let it be cleared by the transcript.done event
           break;
           
         case 'error':
@@ -312,13 +312,21 @@ export function RealtimeChat() {
               {/* Active Transcription Display */}
               {activeTranscription && (
                 <div className={`flex ${activeTranscription.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg border-2 border-dashed ${
-                    activeTranscription.role === 'user' 
-                      ? 'border-blue-300 bg-blue-50 text-blue-800' 
-                      : 'border-green-300 bg-green-50 text-green-800'
+                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg transition-all duration-300 ${
+                    activeTranscription.isComplete 
+                      ? (activeTranscription.role === 'user' 
+                          ? 'border border-blue-500 bg-blue-100 text-blue-900' 
+                          : 'border border-green-500 bg-green-100 text-green-900')
+                      : (activeTranscription.role === 'user' 
+                          ? 'border-2 border-dashed border-blue-300 bg-blue-50 text-blue-800' 
+                          : 'border-2 border-dashed border-green-300 bg-green-50 text-green-800')
                   }`}>
                     <div className="text-xs opacity-70 mb-1 flex items-center gap-2">
-                      {activeTranscription.role === 'user' ? 'You' : 'AI'} (Speaking...)
+                      {activeTranscription.role === 'user' ? 'You' : 'AI'} 
+                      {activeTranscription.isComplete 
+                        ? ' (Completed)' 
+                        : ' (Speaking...)'
+                      }
                       {!activeTranscription.isComplete && (
                         <div className="flex space-x-1">
                           <div className="w-1 h-1 bg-current rounded-full animate-bounce"></div>
