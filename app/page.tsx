@@ -1,4 +1,4 @@
-import { RealtimeChat } from "@/components/realtime-chat";
+import RealtimeChat from "@/components/realtime-chat";
 
 export default function Home() {
   return (

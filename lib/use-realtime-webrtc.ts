@@ -371,5 +371,7 @@ export function useRealtimeWebRTC() {
     sendEvent,
     addEventListener,
     audioElement: audioElementRef.current,
+    localStream: localStreamRef.current,
+    remoteStream: audioElementRef.current?.srcObject as MediaStream || null,
   };
 }

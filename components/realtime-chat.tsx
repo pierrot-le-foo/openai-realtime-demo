@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRealtimeWebRTC, type RealtimeEvent } from '@/lib/use-realtime-webrtc';
 import { createDebugger } from '@/lib/webrtc-debug';
+import AudioWaveVisualizer from './audio-wave-visualizer';
 
 interface ConversationItem {
   id: string;
@@ -21,8 +22,16 @@ interface ActiveTranscription {
   isComplete: boolean;
 }
 
-export function RealtimeChat() {
-  const { connectionState, connect, disconnect, sendEvent, addEventListener } = useRealtimeWebRTC();
+export default function RealtimeChat() {
+  const { 
+    connectionState, 
+    connect, 
+    disconnect, 
+    sendEvent, 
+    addEventListener,
+    localStream,
+    remoteStream
+  } = useRealtimeWebRTC();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -269,6 +278,38 @@ export function RealtimeChat() {
               )}
             </div>
           </div>
+          
+          {/* Audio Wave Visualizers */}
+          {connectionState.status === 'connected' && (
+            <div className="mt-4 flex justify-center space-x-8">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">Your Voice</p>
+                <AudioWaveVisualizer
+                  isActive={userSpeaking}
+                  color="#3b82f6"
+                  height={50}
+                  width={150}
+                  barCount={15}
+                  audioStream={localStream || undefined}
+                  role="user"
+                  className="bg-blue-50 rounded-lg p-2"
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">AI Voice</p>
+                <AudioWaveVisualizer
+                  isActive={activeTranscription?.role === 'assistant' && !activeTranscription.isComplete}
+                  color="#10b981"
+                  height={50}
+                  width={150}
+                  barCount={15}
+                  audioStream={remoteStream || undefined}
+                  role="assistant"
+                  className="bg-green-50 rounded-lg p-2"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Conversation Area */}
