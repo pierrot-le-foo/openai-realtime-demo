@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRealtimeWebRTC, type RealtimeEvent } from '@/lib/use-realtime-webrtc';
+import { createDebugger } from '@/lib/webrtc-debug';
 
 interface ConversationItem {
   id: string;
@@ -76,6 +77,8 @@ export function RealtimeChat() {
 
   const handleConnect = async () => {
     try {
+      // Initialize debugger
+      createDebugger();
       await connect();
     } catch (error) {
       console.error('Failed to connect:', error);
