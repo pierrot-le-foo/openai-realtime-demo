@@ -9,7 +9,7 @@ interface ConversationItem {
   id: string;
   type: string;
   role?: string;
-  content?: any[];
+  content?: Array<{ type: string; text: string }>;
   timestamp: number;
   isComplete?: boolean;
   transcriptText?: string; // For real-time speech transcription
@@ -47,12 +47,18 @@ export default function RealtimeChat() {
       // Handle specific event types
       switch (event.type) {
         case 'conversation.item.created':
-          if (event.item) {
+          if (event.item && typeof event.item === 'object' && event.item !== null) {
+            const item = event.item as {
+              id: string;
+              type: string;
+              role?: string;
+              content?: Array<{ type: string; text: string }>;
+            };
             setConversations(prev => [...prev, {
-              id: event.item.id,
-              type: event.item.type,
-              role: event.item.role,
-              content: event.item.content,
+              id: item.id,
+              type: item.type,
+              role: item.role,
+              content: item.content,
               timestamp: Date.now(),
               isComplete: true,
             }]);
@@ -86,16 +92,17 @@ export default function RealtimeChat() {
           
         case 'conversation.item.input_audio_transcription.completed':
           // Handle user speech transcription
-          console.log('User speech transcribed:', event.transcript);
+          const userTranscript = typeof event.transcript === 'string' ? event.transcript : 'Transcription completed';
+          console.log('User speech transcribed:', userTranscript);
           // Add completed user message to conversation
           setConversations(prev => [...prev, {
             id: `user-transcription-${Date.now()}`,
             type: 'transcription',
             role: 'user',
-            content: [{ type: 'text', text: event.transcript }],
+            content: [{ type: 'text', text: userTranscript }],
             timestamp: Date.now(),
             isComplete: true,
-            transcriptText: event.transcript,
+            transcriptText: userTranscript,
           }]);
           
           // Clear active user transcription after a brief delay
@@ -108,12 +115,13 @@ export default function RealtimeChat() {
 
         case 'response.audio_transcript.delta':
           // Handle partial AI transcription
-          console.log('AI transcript delta:', event.delta);
+          const delta = typeof event.delta === 'string' ? event.delta : '';
+          console.log('AI transcript delta:', delta);
           setActiveTranscription(prev => {
             if (prev && prev.role === 'assistant') {
               return {
                 ...prev,
-                text: prev.text + event.delta,
+                text: prev.text + delta,
                 isComplete: false
               };
             } else {
@@ -121,7 +129,7 @@ export default function RealtimeChat() {
               return {
                 id: `ai-speech-${Date.now()}`,
                 role: 'assistant',
-                text: event.delta,
+                text: delta,
                 isComplete: false
               };
             }
@@ -130,16 +138,17 @@ export default function RealtimeChat() {
           
         case 'response.audio_transcript.done':
           // Handle completed AI transcription
-          console.log('AI transcript done:', event.transcript);
+          const aiTranscript = typeof event.transcript === 'string' ? event.transcript : 'AI response completed';
+          console.log('AI transcript done:', aiTranscript);
           // Add completed AI message to conversation (use the full transcript, not just the delta)
           setConversations(prev => [...prev, {
             id: `ai-transcription-${Date.now()}`,
             type: 'transcription',
             role: 'assistant',
-            content: [{ type: 'text', text: event.transcript }],
+            content: [{ type: 'text', text: aiTranscript }],
             timestamp: Date.now(),
             isComplete: true,
-            transcriptText: event.transcript,
+            transcriptText: aiTranscript,
           }]);
           
           // Clear active transcription after a small delay to show completion

@@ -52,7 +52,7 @@ export class WebRTCDebugger {
     document.body.appendChild(toggleBtn);
   }
 
-  log(message: string, data?: any) {
+  log(message: string, data?: unknown) {
     const timestamp = new Date().toLocaleTimeString();
     const logMessage = `[${timestamp}] ${message}`;
     

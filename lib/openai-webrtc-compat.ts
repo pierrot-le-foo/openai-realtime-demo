@@ -91,14 +91,12 @@ function ensureCompatibleAudioSection(sdp: string): string {
   const lines = sdp.split('\r\n');
   const result: string[] = [];
   let inAudioSection = false;
-  let audioMediaIndex = -1;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     if (line.startsWith('m=audio')) {
       inAudioSection = true;
-      audioMediaIndex = i;
       result.push(line);
     } else if (line.startsWith('m=') && !line.startsWith('m=audio')) {
       inAudioSection = false;

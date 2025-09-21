@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 
 interface AudioWaveVisualizerProps {
   isActive: boolean;
@@ -31,55 +31,7 @@ export function AudioWaveVisualizer({
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Initialize audio analysis
-  useEffect(() => {
-    if (!audioStream || !isActive) {
-      cleanup();
-      return;
-    }
-
-    const setupAudioAnalysis = async () => {
-      try {
-        // Create audio context
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const audioContext = audioContextRef.current;
-
-        // Create analyser node
-        analyserRef.current = audioContext.createAnalyser();
-        analyserRef.current.fftSize = 256;
-        analyserRef.current.smoothingTimeConstant = 0.8;
-
-        // Connect audio stream to analyser
-        const source = audioContext.createMediaStreamSource(audioStream);
-        source.connect(analyserRef.current);
-
-        // Create data array for frequency data
-        const bufferLength = analyserRef.current.frequencyBinCount;
-        dataArrayRef.current = new Uint8Array(new ArrayBuffer(bufferLength));
-
-        setIsAnalyzing(true);
-        startVisualization();
-      } catch (error) {
-        console.error('Error setting up audio analysis:', error);
-      }
-    };
-
-    setupAudioAnalysis();
-
-    return cleanup;
-  }, [audioStream, isActive]);
-
-  const cleanup = () => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-    }
-    setIsAnalyzing(false);
-  };
-
-  const startVisualization = () => {
+  const startVisualization = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !analyserRef.current || !dataArrayRef.current) return;
 
@@ -90,7 +42,7 @@ export function AudioWaveVisualizer({
       if (!analyserRef.current || !dataArrayRef.current || !isActive) return;
 
       // Get frequency data
-      // @ts-ignore - TypeScript ArrayBuffer type issue with Web Audio API
+      // @ts-expect-error - TypeScript has issues with Web Audio API ArrayBuffer types
       analyserRef.current.getByteFrequencyData(dataArrayRef.current);
 
       // Clear canvas
@@ -128,7 +80,55 @@ export function AudioWaveVisualizer({
     };
 
     draw();
-  };
+  }, [isActive, color, height, width, barCount]);
+
+  const cleanup = useCallback(() => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+    }
+    setIsAnalyzing(false);
+  }, []);
+
+  // Initialize audio analysis
+  useEffect(() => {
+    if (!audioStream || !isActive) {
+      cleanup();
+      return;
+    }
+
+    const setupAudioAnalysis = async () => {
+      try {
+        // Create audio context
+        audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        const audioContext = audioContextRef.current;
+
+        // Create analyser node
+        analyserRef.current = audioContext.createAnalyser();
+        analyserRef.current.fftSize = 256;
+        analyserRef.current.smoothingTimeConstant = 0.8;
+
+        // Connect audio stream to analyser
+        const source = audioContext.createMediaStreamSource(audioStream);
+        source.connect(analyserRef.current);
+
+        // Create data array for frequency data
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        dataArrayRef.current = new Uint8Array(new ArrayBuffer(bufferLength));
+
+        setIsAnalyzing(true);
+        startVisualization();
+      } catch (error) {
+        console.error('Error setting up audio analysis:', error);
+      }
+    };
+
+    setupAudioAnalysis();
+
+    return cleanup;
+  }, [audioStream, isActive, startVisualization, cleanup]);
 
   // Fallback animation when no audio stream
   useEffect(() => {

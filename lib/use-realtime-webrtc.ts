@@ -2,16 +2,10 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { createDebugger, getDebugger } from './webrtc-debug';
-import { 
-  createOpenAICompatiblePeerConnection, 
-  configureAudioTransceiverForOpenAI,
-  createOpenAICompatibleOffer,
-  validateSDPForOpenAI 
-} from './openai-webrtc-compat';
 
 export interface RealtimeEvent {
   type: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ConnectionState {
@@ -93,112 +87,7 @@ export function useRealtimeWebRTC() {
         error: 'Connection failed after multiple attempts. Please check your network connection and try again.' 
       });
     }
-  }, []);
-
-  const restartIce = useCallback(async () => {
-    const debug = getDebugger();
-    debug?.log('Attempting ICE restart...');
-    
-    if (!pcRef.current) {
-      debug?.log('No peer connection available for ICE restart');
-      return;
-    }
-
-    try {
-      // Create a new offer with ICE restart
-      const offer = await pcRef.current.createOffer({ iceRestart: true });
-      await pcRef.current.setLocalDescription(offer);
-      
-      if (!offer.sdp) {
-        throw new Error('Failed to create ICE restart offer');
-      }
-
-      debug?.log('ICE restart offer created, sending to server...');
-      
-      // Send the new offer to the server
-      const response = await fetch("/api/session", {
-        method: "POST",
-        body: offer.sdp,
-        headers: {
-          "Content-Type": "application/sdp",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`ICE restart failed: ${response.status}`);
-      }
-
-      const answerSdp = await response.text();
-      const answer: RTCSessionDescriptionInit = {
-        type: "answer",
-        sdp: answerSdp,
-      };
-      
-      await pcRef.current.setRemoteDescription(answer);
-      debug?.log('ICE restart completed successfully');
-      
-    } catch (error) {
-      debug?.log('ICE restart failed:', error);
-      console.error('ICE restart failed:', error);
-      // If ICE restart fails, fall back to full reconnection
-      attemptReconnect();
-    }
-  }, [attemptReconnect]);
-
-  const disconnect = useCallback(() => {
-    console.log('Disconnecting...');
-    
-    try {
-      // Clear reconnection timeout
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-        console.log('Cleared reconnection timeout');
-      }
-      
-      // Reset connection attempts and session state
-      connectionAttempts.current = 0;
-      setIsSessionStarted(false);
-      console.log('Reset connection attempts and session state');
-      
-      // Close data channel
-      if (dcRef.current) {
-        dcRef.current.close();
-        dcRef.current = null;
-        console.log('Closed data channel');
-      }
-      
-      // Close peer connection
-      if (pcRef.current) {
-        pcRef.current.close();
-        pcRef.current = null;
-        console.log('Closed peer connection');
-      }
-      
-      // Stop local media stream
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped track:', track.kind);
-        });
-        localStreamRef.current = null;
-        console.log('Stopped local media stream');
-      }
-      
-      // Remove audio element
-      if (audioElementRef.current) {
-        audioElementRef.current.remove();
-        audioElementRef.current = null;
-        console.log('Removed audio element');
-      }
-      
-      setConnectionState({ status: 'disconnected' });
-      console.log('Disconnect completed - state set to disconnected');
-    } catch (error) {
-      console.error('Error during disconnect:', error);
-      // Still set to disconnected even if there's an error
-      setConnectionState({ status: 'disconnected' });
-    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const connect = useCallback(async () => {
@@ -372,6 +261,62 @@ export function useRealtimeWebRTC() {
       attemptReconnect();
     }
   }, [eventListeners, attemptReconnect, isSessionStarted]);
+
+  const disconnect = useCallback(() => {
+    console.log('Disconnecting...');
+    
+    try {
+      // Clear reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+        console.log('Cleared reconnection timeout');
+      }
+      
+      // Reset connection attempts and session state
+      connectionAttempts.current = 0;
+      setIsSessionStarted(false);
+      console.log('Reset connection attempts and session state');
+      
+      // Close data channel
+      if (dcRef.current) {
+        dcRef.current.close();
+        dcRef.current = null;
+        console.log('Closed data channel');
+      }
+      
+      // Close peer connection
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+        console.log('Closed peer connection');
+      }
+      
+      // Stop local media stream
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped track:', track.kind);
+        });
+        localStreamRef.current = null;
+        console.log('Stopped local media stream');
+      }
+      
+      // Remove audio element
+      if (audioElementRef.current) {
+        audioElementRef.current.remove();
+        audioElementRef.current = null;
+        console.log('Removed audio element');
+      }
+      
+      setConnectionState({ status: 'disconnected' });
+      console.log('Disconnect completed - state set to disconnected');
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+      // Still set to disconnected even if there's an error
+      setConnectionState({ status: 'disconnected' });
+    }
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
